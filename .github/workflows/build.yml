@@ -1,0 +1,57 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+          uname -m
+
+      - name: Test
+        run: swift test
+
+      - name: Install create-dmg (for the drag-to-Applications disk image)
+        continue-on-error: true
+        run: brew install create-dmg
+
+      - name: Build app and dmg
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then VERSION="${GITHUB_REF_NAME#v}"; else VERSION="0.0.0-dev"; fi
+          VERSION="$VERSION" BUILD="$GITHUB_RUN_NUMBER" bash scripts/make-app.sh
+
+      - name: Smoke test (launch, memory, screenshots)
+        continue-on-error: true
+        run: bash scripts/smoke.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: marginleaf
+          path: |
+            build/Marginleaf.dmg
+            build/smoke/*.png
+          if-no-files-found: warn
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" build/Marginleaf.dmg \
+            --title "Marginleaf ${GITHUB_REF_NAME#v}" \
+            --notes "Apple Silicon build. Unsigned: see the README for the first-launch steps."
