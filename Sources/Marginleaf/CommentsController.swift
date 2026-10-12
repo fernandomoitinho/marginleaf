@@ -120,7 +120,7 @@ final class CommentsController: NSObject, WKScriptMessageHandler {
     func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
         if type == "add" {
-            // The "+" in the margin: comment on a whole paragraph, list item, table...
+            // A click on a hovered block: comment on a whole paragraph, list item, table...
             guard let text = body["text"] as? String,
                   case let quote = text.trimmingCharacters(in: .whitespacesAndNewlines), !quote.isEmpty else { return }
             let start = (body["start"] as? Int) ?? 1
@@ -529,44 +529,39 @@ final class CommentsController: NSObject, WKScriptMessageHandler {
         return box(m.getBoundingClientRect());
       };
 
-      // The "+" that appears in the margin next to the block under the pointer.
-      var plus = document.createElement('button');
-      plus.id = 'fc-add';
-      plus.type = 'button';
-      plus.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3.5h14a2.5 2.5 0 0 1 2.5 2.5v9a2.5 2.5 0 0 1-2.5 2.5h-6.5L7.5 21v-3.5H5A2.5 2.5 0 0 1 2.5 15V6A2.5 2.5 0 0 1 5 3.5z"/></svg>';
-      plus.title = 'Comment on this block';
-      document.body.appendChild(plus);
-      var target = null, hideTimer = null;
-      function hidePlus() { plus.style.display = 'none'; target = null; }
-      function showPlus(el) {
+      // Whole-block comments: hovering a block outlines it and turns the pointer into a comment
+      // bubble; a plain click (no text selected) starts a comment on that block.
+      var target = null;
+      function blockUnder(t) {
+        var el = t && t.closest && t.closest('li[data-sourcepos], article > [data-sourcepos]');
+        // A list item that holds a nested list belongs to its own text, not its children's.
+        return el && art() && art().contains(el) ? el : null;
+      }
+      function setTarget(el) {
+        if (el === target) return;
+        if (target) target.classList.remove('fc-hover');
         target = el;
-        var r = el.getBoundingClientRect(), isItem = el.tagName === 'LI';
-        plus.style.left = Math.max(4, r.left - (isItem ? 46 : 32)) + 'px';
-        plus.style.top = Math.max(4, r.top + 2) + 'px';
-        plus.style.display = 'flex';
+        if (target) target.classList.add('fc-hover');
       }
       document.addEventListener('mouseover', function (e) {
-        if (document.documentElement.classList.contains('nofc')) return;
-        if (e.target === plus) { clearTimeout(hideTimer); return; }
-        var el = e.target.closest && e.target.closest('li[data-sourcepos], article > [data-sourcepos]');
-        if (!el || !art() || !art().contains(el)) {
-          clearTimeout(hideTimer);
-          hideTimer = setTimeout(hidePlus, 300);
-          return;
-        }
-        clearTimeout(hideTimer);
-        if (el !== target) showPlus(el);
+        if (document.documentElement.classList.contains('nofc')) { setTarget(null); return; }
+        var onMark = e.target.closest && e.target.closest('mark.fc, a');
+        setTarget(onMark ? null : blockUnder(e.target));
       });
-      window.addEventListener('scroll', hidePlus, { passive: true });
-      plus.addEventListener('click', function (e) {
-        e.preventDefault();
-        if (!target) return;
-        var l = lines(target), b = box(target.getBoundingClientRect());
+      document.addEventListener('mouseleave', function () { setTarget(null); });
+
+      document.addEventListener('click', function (e) {
+        if (document.documentElement.classList.contains('nofc')) return;
+        var s = window.getSelection();
+        if (s && !s.isCollapsed) return;
+        if (e.target.closest && e.target.closest('mark.fc, a, input, summary')) return;
+        var el = blockUnder(e.target);
+        if (!el) return;
+        var l = lines(el), b = box(el.getBoundingClientRect());
         b.type = 'add';
-        b.text = squash(target.textContent);
+        b.text = squash(el.textContent);
         b.start = l ? l[0] : 1;
         b.end = l ? l[1] : b.start;
-        hidePlus();
         window.webkit.messageHandlers.marginleaf.postMessage(b);
       });
 

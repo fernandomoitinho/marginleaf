@@ -17,16 +17,8 @@ cp "$BIN" "$APP/Contents/MacOS/Marginleaf"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD/" Resources/Info.plist > "$APP/Contents/Info.plist"
 plutil -lint "$APP/Contents/Info.plist"
 
-# Icon: one 1024px PNG -> .icns
-ICONSET="build/AppIcon.iconset"
-mkdir -p "$ICONSET"
-for size in 16 32 128 256 512; do
-  sips -z "$size" "$size" Resources/AppIcon.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
-  double=$((size * 2))
-  sips -z "$double" "$double" Resources/AppIcon.png --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
-done
-iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
-rm -rf "$ICONSET"
+# Icon: Resources/AppIcon.icns is pre-rendered with Lanczos resampling from AppIcon.png (1024px).
+cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 # Ad-hoc signature. Not an Apple Developer ID, so Gatekeeper still asks on first launch.
 codesign --force --sign - "$APP"

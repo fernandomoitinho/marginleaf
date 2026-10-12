@@ -58,13 +58,10 @@ public enum Style {
     mark.fc { background: rgba(255, 204, 0, 0.38); color: inherit; border-radius: 3px; cursor: pointer; padding: 0.05em 0; }
     mark.fc:hover { background: rgba(255, 204, 0, 0.58); }
     html.nofc mark.fc { background: none; cursor: text; }
-    #fc-add { position: fixed; z-index: 10; display: none; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 7px;
-      background: none; color: var(--accent); display: none; align-items: center; justify-content: center;
-      cursor: pointer; opacity: 0.7; }
-    #fc-add:hover { opacity: 1; background: var(--code-bg); }
-    #fc-add svg { display: block; }
-    html.nofc #fc-add { display: none !important; }
-    @media print { #fc-add { display: none !important; } }
+    /* Whole-block comments: the block under the pointer is outlined and the pointer becomes a comment bubble. */
+    html:not(.nofc) .fc-hover { outline: 1.5px solid var(--accent); outline-offset: 5px; border-radius: 3px;
+      background: color-mix(in srgb, var(--accent) 7%, transparent);
+      cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path d='M7 4h14a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-7l-5 4v-4H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z' fill='%230a62c9' stroke='white' stroke-width='1.6' stroke-linejoin='round'/><path d='M10 10h8M10 14h5' stroke='white' stroke-width='1.8' stroke-linecap='round'/></svg>") 14 14, pointer; }
     code { font-size: 0.88em; background: var(--code-bg); padding: 0.15em 0.4em; border-radius: 5px; }
     pre { background: var(--code-bg); padding: 16px 18px; border-radius: 10px; overflow-x: auto; line-height: 1.5; margin: 1.2em 0; }
     pre code { background: none; padding: 0; font-size: 0.86em; border-radius: 0; }

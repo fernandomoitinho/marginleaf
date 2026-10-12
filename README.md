@@ -13,7 +13,7 @@ It opens fast, stays small, and does one thing: show a note nicely, or show its 
 - **Source:** a plain native text view with light Markdown colouring. No toolbar, no autocomplete, built to stay responsive on large files.
 - **Inline comments**, in both Preview and Source:
   - Select text and press `Option+Cmd+M` (or right-click → Comment), write, `Cmd+Enter` saves.
-  - Hover any paragraph, list item, table or code block in the Preview and click the comment bubble in the margin to comment on the whole block.
+  - Hover any paragraph, list item, table or code block in the Preview: it is outlined and the pointer turns into a comment bubble. Click (without selecting text) to comment on the whole block.
   - Highlights are yellow; click one to edit or delete it. The toolbar toggle hides them.
   - `Shift+Cmd+C` copies every comment, with the highlighted text and line numbers, as Markdown.
   - Comments live next to the note in `note.md.comments.json`. They follow the text when you edit the note, as long as the passage still starts the same way.
