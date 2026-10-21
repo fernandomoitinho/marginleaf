@@ -38,3 +38,11 @@ enum Settings {
         }
     }
 }
+
+extension Settings {
+    /// The outline (table of contents) on the right: shown or hidden. Off until asked for.
+    static var outlineVisible: Bool {
+        get { UserDefaults.standard.object(forKey: "outlineVisible") as? Bool ?? false }
+        set { UserDefaults.standard.set(newValue, forKey: "outlineVisible") }
+    }
+}

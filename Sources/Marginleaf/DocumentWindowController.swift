@@ -48,6 +48,10 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
     private var sidebar: SidebarViewController?
     private var splitController: NSSplitViewController?
     private var sidebarObserver: NSKeyValueObservation?
+    private let outlinePanel = OutlineViewController()
+    private var outlineItem: NSSplitViewItem?
+    private var outlineObserver: NSKeyValueObservation?
+    private var outlineRefresh: DispatchWorkItem?
 
     private var mode: Mode = .preview
     /// Bumped on every change to the text; the preview re-renders only when it is behind.
@@ -66,6 +70,7 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
     private static let toggleCommentsID = NSToolbarItem.Identifier("marginleaf.toggleComments")
     private static let addCommentID = NSToolbarItem.Identifier("marginleaf.addComment")
     private static let commentsID = NSToolbarItem.Identifier("marginleaf.comments")
+    private static let outlineID = NSToolbarItem.Identifier("marginleaf.outline")
 
     // Comments (preview only for now)
     var canAddComment: Bool { true }
@@ -125,11 +130,11 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
     }
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.toggleSidebar, .flexibleSpace, Self.modeItemID, Self.toggleCommentsID, Self.addCommentID, Self.commentsID, .flexibleSpace]
+        [.toggleSidebar, .flexibleSpace, Self.modeItemID, Self.toggleCommentsID, Self.addCommentID, Self.commentsID, .flexibleSpace, Self.outlineID]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.toggleSidebar, .flexibleSpace, Self.modeItemID, Self.toggleCommentsID, Self.addCommentID, Self.commentsID]
+        [.toggleSidebar, .flexibleSpace, Self.modeItemID, Self.toggleCommentsID, Self.addCommentID, Self.commentsID, Self.outlineID]
     }
 
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier,
@@ -164,6 +169,15 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
             item.menu = comments.makeMenu()
             commentsMenuItem = item
             return item
+        case Self.outlineID:
+            let item = NSToolbarItem(itemIdentifier: id)
+            item.image = NSImage(systemSymbolName: "sidebar.right", accessibilityDescription: "Outline")
+            item.label = "Outline"
+            item.toolTip = "Show or hide the outline (Option+Cmd+O)"
+            item.target = self
+            item.action = #selector(toggleOutlineTapped)
+            item.isBordered = true
+            return item
         default:
             return nil
         }
@@ -191,7 +205,7 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
         }
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: Settings.sidebarVisible ? 1090 : 860, height: 920),
+            contentRect: NSRect(x: 0, y: 0, width: (Settings.sidebarVisible ? 1090 : 860) + (Settings.outlineVisible ? 250 : 0), height: 920),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
@@ -220,6 +234,7 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
         }
         configureViews(in: window)
         installToolbar(in: window)
+        if Settings.outlineVisible { refreshOutline() }
 
         // Reading is the common case; an empty (new) note starts in the editor.
         if document.text.isEmpty {
@@ -250,9 +265,20 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
         sidebarItem.isCollapsed = !Settings.sidebarVisible
         let contentItem = NSSplitViewItem(viewController: ContentViewController(content: container))
         contentItem.minimumThickness = 360
+        let outlineItem = NSSplitViewItem(viewController: outlinePanel)
+        outlineItem.minimumThickness = 170
+        outlineItem.maximumThickness = 420
+        outlineItem.canCollapse = true
+        outlineItem.isCollapsed = !Settings.outlineVisible
+        outlineItem.holdingPriority = NSLayoutConstraint.Priority(260)
+        outlineItem.preferredThicknessFraction = 0.24
+        self.outlineItem = outlineItem
+        outlinePanel.onSelect = { [weak self] item in self?.goToHeading(item) }
+        outlinePanel.onClose = { [weak self] in self?.toggleOutline() }
         let split = NSSplitViewController()
         split.addSplitViewItem(sidebarItem)
         split.addSplitViewItem(contentItem)
+        split.addSplitViewItem(outlineItem)
         let frame = window.frame
         splitController = split
         window.contentViewController = split
@@ -265,6 +291,10 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
         window.contentMaxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         sidebarObserver = sidebarItem.observe(\.isCollapsed) { item, _ in
             Settings.sidebarVisible = !item.isCollapsed
+        }
+        outlineObserver = outlineItem.observe(\.isCollapsed) { [weak self] item, _ in
+            Settings.outlineVisible = !item.isCollapsed
+            if !item.isCollapsed { DispatchQueue.main.async { self?.refreshOutline() } }
         }
         NotificationCenter.default.addObserver(
             forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
@@ -435,7 +465,7 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
             }
             try? text.write(toFile: path, atomically: true, encoding: .utf8)
             self.writeWindowDiagnostics(to: path + ".window")
-            NSApp.terminate(nil)
+            self.runOutlineSelfTest(writingTo: path + ".outline")
         }
     }
 
@@ -506,6 +536,7 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
     func textDidChange(_ notification: Notification) {
         sourceHasPendingEdits = true
         textVersion += 1
+        scheduleOutlineRefresh()
     }
 
     /// Right-click in the source: "Comment" first, when there is a selection.
@@ -530,6 +561,7 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
     func documentDidReload() {
         textVersion += 1
         sourceIsStale = true
+        refreshOutline()
         markdownDoc?.undoManager?.removeAllActions()
         switch mode {
         case .preview:
@@ -555,6 +587,111 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
         let scrollable = max(0, textView.frame.height - clip.bounds.height)
         clip.scroll(to: NSPoint(x: 0, y: CGFloat(fraction) * scrollable))
         scrollView.reflectScrolledClipView(clip)
+    }
+
+    // MARK: Outline
+
+    var isOutlineVisible: Bool { !(outlineItem?.isCollapsed ?? true) }
+
+    /// Option+Cmd+O.
+    func toggleOutline() {
+        guard let item = outlineItem else { return }
+        item.animator().isCollapsed = !item.isCollapsed
+    }
+
+    @objc private func toggleOutlineTapped() { toggleOutline() }
+
+    /// What the note says right now, including edits not yet copied into the document.
+    private var currentText: String {
+        sourceHasPendingEdits ? textView.string : (markdownDoc?.text ?? "")
+    }
+
+    private func refreshOutline() {
+        outlineRefresh?.cancel()
+        guard isOutlineVisible else { return }
+        outlinePanel.update(Outline.headings(in: currentText))
+    }
+
+    /// While typing, rebuild the outline once the typing pauses.
+    private func scheduleOutlineRefresh() {
+        guard isOutlineVisible else { return }
+        outlineRefresh?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.refreshOutline() }
+        outlineRefresh = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+    }
+
+    /// A click in the outline: scroll the visible view so the heading is at the top.
+    private func goToHeading(_ item: OutlineItem) {
+        switch mode {
+        case .preview:
+            webView.evaluateJavaScript(Self.scrollToHeadingJS(line: item.line, smooth: true), completionHandler: nil)
+        case .source:
+            scrollSource(toLine: item.line)
+        }
+    }
+
+    /// Finds the heading the preview tagged with this source line (cmark's `data-sourcepos`).
+    private static func scrollToHeadingJS(line: Int, smooth: Bool) -> String {
+        """
+        (function (line) {
+          var hs = document.querySelectorAll('h1,h2,h3,h4,h5,h6'), el = null;
+          for (var i = 0; i < hs.length; i++) {
+            var sp = hs[i].getAttribute('data-sourcepos');
+            if (sp && sp.indexOf(line + ':') === 0) { el = hs[i]; break; }
+          }
+          if (!el) return JSON.stringify({ found: false });
+          var top = Math.max(0, el.getBoundingClientRect().top + window.scrollY - 24);
+          window.scrollTo({ top: top, behavior: '\(smooth ? "smooth" : "auto")' });
+          return JSON.stringify({ found: true, top: top, y: window.scrollY });
+        })(\(line))
+        """
+    }
+
+    private func scrollSource(toLine line: Int) {
+        ensureSourceLoaded()
+        let text = textView.string as NSString
+        // Lines end at \n, \r\n or a lone \r, the same as cmark counts them.
+        var index = 0
+        var current = 1
+        while current < line, index < text.length {
+            let c = text.character(at: index)
+            index += 1
+            if c == 13 {
+                if index < text.length, text.character(at: index) == 10 { index += 1 }
+                current += 1
+            } else if c == 10 {
+                current += 1
+            }
+        }
+        guard let layout = textView.layoutManager, let container = textView.textContainer else { return }
+        let lineRange = text.lineRange(for: NSRange(location: index, length: 0))
+        let glyphs = layout.glyphRange(forCharacterRange: lineRange, actualCharacterRange: nil)
+        let rect = layout.boundingRect(forGlyphRange: glyphs, in: container)
+        let clip = scrollView.contentView
+        let maxY = max(0, textView.frame.height - clip.bounds.height)
+        let y = min(maxY, max(0, rect.minY + textView.textContainerOrigin.y - 16))
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.25
+            clip.animator().setBoundsOrigin(NSPoint(x: 0, y: y))
+        }
+        scrollView.reflectScrolledClipView(clip)
+        textView.setSelectedRange(NSRange(location: index, length: 0))
+        window?.makeFirstResponder(textView)
+    }
+
+    /// CI only: ask the preview to scroll to the last heading and report where it landed.
+    private func runOutlineSelfTest(writingTo path: String) {
+        guard let last = Outline.headings(in: markdownDoc?.text ?? "").last else {
+            try? "no headings".write(toFile: path, atomically: true, encoding: .utf8)
+            NSApp.terminate(nil)
+            return
+        }
+        webView.evaluateJavaScript(Self.scrollToHeadingJS(line: last.line, smooth: false)) { result, error in
+            let text = error.map { "ERROR: \($0)" } ?? "line \(last.line) -> \(result ?? "nil")"
+            try? text.write(toFile: path, atomically: true, encoding: .utf8)
+            NSApp.terminate(nil)
+        }
     }
 
     // MARK: Zoom

@@ -63,6 +63,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     @objc func addComment(_ sender: Any?) { currentController?.addComment() }
     @objc func copyComments(_ sender: Any?) { currentController?.copyComments() }
 
+    @objc func toggleOutline(_ sender: Any?) { currentController?.toggleOutline() }
+
     @objc func zoomIn(_ sender: Any?) { Settings.zoom += 0.1 }
     @objc func zoomOut(_ sender: Any?) { Settings.zoom -= 0.1 }
     @objc func zoomReset(_ sender: Any?) { Settings.zoom = 1 }
@@ -75,6 +77,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 return false
             }
             item.title = controller.isShowingSource ? "Show Preview" : "Show Source"
+            return true
+        case #selector(toggleOutline(_:)):
+            guard let controller = currentController else {
+                item.title = "Show Outline"
+                return false
+            }
+            item.title = controller.isOutlineVisible ? "Hide Outline" : "Show Outline"
             return true
         case #selector(addComment(_:)):
             return currentController?.canAddComment ?? false

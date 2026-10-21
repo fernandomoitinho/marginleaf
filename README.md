@@ -18,6 +18,7 @@ It opens fast, stays small, and does one thing: show a note nicely, or show its 
   - `Shift+Cmd+C` copies every comment, with the highlighted text and line numbers, as Markdown.
   - Comments live next to the note in `note.md.comments.json`. They follow the text when you edit the note, as long as the passage still starts the same way.
 - **File explorer** on the left, like a notes vault: `Ctrl+Cmd+S` shows or hides it, `Shift+Cmd+O` picks another folder.
+- **Outline** on the right: `Option+Cmd+O` (or the toolbar button) shows a table of contents built from the note's headings, indented by level. Click one and the Preview or Source scrolls to it. It follows your edits.
 - **Find and replace** in Source (`Option+Cmd+F`).
 - **Safe saving:** line endings (LF/CRLF), BOM and the trailing newline are preserved, and an unchanged file saves back byte for byte.
 - **Live reload:** if the file changes on disk (git, an editor, a script) Marginleaf reloads it, or asks if you have unsaved edits.
@@ -54,12 +55,14 @@ open build/Marginleaf.app
 Sources/MarginleafCore/   Pure Swift, no AppKit, unit-tested:
                           Renderer (Markdown → HTML via cmark-gfm), Style (preview CSS),
                           TextCodec (UTF-8, CRLF, BOM round trips), FenceScanner (code fences),
-                          Comments (model, JSON sidecar, copy format).
+                          Comments (model, JSON sidecar, copy format),
+                          Outline (headings and their source lines).
 Sources/Marginleaf/       The app (AppKit + WebKit):
                           MarkdownDocument (NSDocument: read, write, external changes),
                           DocumentWindowController (toolbar, Source/Preview, sidebar),
                           CommentsController (selection, highlights, popover, injected script),
                           MarkdownHighlighter (per-paragraph colouring), SidebarViewController,
+                          OutlineViewController (the table of contents),
                           MainMenu, AppDelegate.
 Resources/                Info.plist, app icon, disk image background.
 scripts/                  make-app.sh (.app and .dmg), smoke.sh (CI launch check).

@@ -102,6 +102,7 @@ enum MainMenu {
         let menu = NSMenu(title: "View")
         menu.addItem(item("Show Source", #selector(AppDelegate.toggleMode(_:)), "e"))
         menu.addItem(item("Toggle Sidebar", #selector(NSSplitViewController.toggleSidebar(_:)), "s", [.command, .control]))
+        menu.addItem(item("Show Outline", #selector(AppDelegate.toggleOutline(_:)), "o", [.command, .option]))
         menu.addItem(.separator())
         menu.addItem(item("Zoom In", #selector(AppDelegate.zoomIn(_:)), "="))
         menu.addItem(item("Zoom Out", #selector(AppDelegate.zoomOut(_:)), "-"))
