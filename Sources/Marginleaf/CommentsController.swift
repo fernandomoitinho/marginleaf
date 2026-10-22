@@ -529,24 +529,36 @@ final class CommentsController: NSObject, WKScriptMessageHandler {
         return box(m.getBoundingClientRect());
       };
 
-      // Whole-block comments: hovering a block outlines it and turns the pointer into a comment
-      // bubble; a plain click (no text selected) starts a comment on that block.
-      var target = null;
-      function blockUnder(t) {
-        var el = t && t.closest && t.closest('li[data-sourcepos], article > [data-sourcepos]');
-        // A list item that holds a nested list belongs to its own text, not its children's.
-        return el && art() && art().contains(el) ? el : null;
+      // Whole-block comments live in a strip at the start of each block (its left edge, where the
+      // bullet or the margin is). Only there does the block get outlined and the pointer turn into a
+      // comment bubble; everywhere else the text behaves normally, so it can be selected for an
+      // inline comment.
+      var target = null, ZONE_L = 34, ZONE_R = 12;
+      function blockAt(x, y) {
+        var a = art();
+        if (!a) return null;
+        var list = a.querySelectorAll('li[data-sourcepos], :scope > [data-sourcepos]'), hit = null;
+        for (var i = 0; i < list.length; i++) {
+          var r = list[i].getBoundingClientRect();
+          if (y >= r.top && y <= r.bottom && x >= r.left - ZONE_L && x <= r.left + ZONE_R) hit = list[i];
+        }
+        return hit;
       }
       function setTarget(el) {
         if (el === target) return;
         if (target) target.classList.remove('fc-hover');
         target = el;
+        document.documentElement.classList.toggle('fc-zone', !!el);
         if (target) target.classList.add('fc-hover');
       }
-      document.addEventListener('mouseover', function (e) {
+      window.marginleafProbe = function (x, y) { setTarget(blockAt(x, y)); return !!target; };
+      var pending = null;
+      document.addEventListener('mousemove', function (e) {
         if (document.documentElement.classList.contains('nofc')) { setTarget(null); return; }
-        var onMark = e.target.closest && e.target.closest('mark.fc, a');
-        setTarget(onMark ? null : blockUnder(e.target));
+        if (e.buttons) { setTarget(null); return; }
+        var x = e.clientX, y = e.clientY;
+        if (pending) cancelAnimationFrame(pending);
+        pending = requestAnimationFrame(function () { pending = null; setTarget(blockAt(x, y)); });
       });
       document.addEventListener('mouseleave', function () { setTarget(null); });
 
@@ -555,7 +567,7 @@ final class CommentsController: NSObject, WKScriptMessageHandler {
         var s = window.getSelection();
         if (s && !s.isCollapsed) return;
         if (e.target.closest && e.target.closest('mark.fc, a, input, summary')) return;
-        var el = blockUnder(e.target);
+        var el = blockAt(e.clientX, e.clientY);
         if (!el) return;
         var l = lines(el), b = box(el.getBoundingClientRect());
         b.type = 'add';

@@ -448,8 +448,8 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
           var sel = marginleafSelection();
           var res = marginleafHighlight([{ id: 't', quote: sel.text, start: sel.start }]);
           var p0 = document.querySelector('article > p');
-          p0.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-          var plus = p0.classList.contains('fc-hover');
+          var pr = p0.getBoundingClientRect();
+          var plus = marginleafProbe(pr.left - 10, pr.top + 5) && !marginleafProbe(pr.left + 200, pr.top + 5);
           // Edited passage: same opening, different ending -> should still be found (fuzzy).
           var long = sel.text + ' and then this sentence was added after the comment was written';
           var fuzzy = marginleafHighlight([{ id: 'f', quote: long + ' ' + long, alt: '', start: sel.start }]);

@@ -60,7 +60,8 @@ public enum Style {
     html.nofc mark.fc { background: none; cursor: text; }
     /* Whole-block comments: the block under the pointer is outlined and the pointer becomes a comment bubble. */
     html:not(.nofc) .fc-hover { outline: 1.5px solid var(--accent); outline-offset: 5px; border-radius: 3px;
-      background: color-mix(in srgb, var(--accent) 7%, transparent);
+      background: color-mix(in srgb, var(--accent) 7%, transparent); }
+    html:not(.nofc).fc-zone, html:not(.nofc).fc-zone * {
       cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path d='M7 4h14a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-7l-5 4v-4H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z' fill='%230a62c9' stroke='white' stroke-width='1.6' stroke-linejoin='round'/><path d='M10 10h8M10 14h5' stroke='white' stroke-width='1.8' stroke-linecap='round'/></svg>") 14 14, pointer; }
     code { font-size: 0.88em; background: var(--code-bg); padding: 0.15em 0.4em; border-radius: 5px; }
     pre { background: var(--code-bg); padding: 16px 18px; border-radius: 10px; overflow-x: auto; line-height: 1.5; margin: 1.2em 0; }
