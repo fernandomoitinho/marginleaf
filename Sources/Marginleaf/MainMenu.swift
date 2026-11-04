@@ -114,6 +114,11 @@ enum MainMenu {
         let speedItem = NSMenuItem(title: "Reading Speed", action: nil, keyEquivalent: "")
         speedItem.submenu = speed
         menu.addItem(speedItem)
+        let voices = NSMenu(title: "Reading Voice")
+        voices.delegate = VoiceMenu.shared
+        let voiceItem = NSMenuItem(title: "Reading Voice", action: nil, keyEquivalent: "")
+        voiceItem.submenu = voices
+        menu.addItem(voiceItem)
         menu.addItem(.separator())
         menu.addItem(item("Zoom In", #selector(AppDelegate.zoomIn(_:)), "="))
         menu.addItem(item("Zoom Out", #selector(AppDelegate.zoomOut(_:)), "-"))

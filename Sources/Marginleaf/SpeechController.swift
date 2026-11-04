@@ -81,6 +81,19 @@ final class SpeechController: NSObject, AVSpeechSynthesizerDelegate {
     /// Takes effect straight away: the current block restarts at the new speed.
     func setSpeed(_ speed: Double) {
         Settings.speechSpeed = speed
+        restartCurrentBlock()
+    }
+
+    /// Picks a voice for a language (nil goes back to automatic) and, if reading, switches at once.
+    func setVoice(identifier: String?, language: String) {
+        var chosen = Settings.speechVoices
+        chosen[language] = identifier
+        Settings.speechVoices = chosen
+        voiceCache.removeAll()
+        restartCurrentBlock()
+    }
+
+    private func restartCurrentBlock() {
         guard state != .idle else { return }
         let wasPaused = state == .paused
         speak(from: currentIndex)
@@ -137,7 +150,14 @@ final class SpeechController: NSObject, AVSpeechSynthesizerDelegate {
 
     // MARK: Language and voice
 
-    private static func baseCode(_ tag: String) -> String {
+    /// Voices worth offering: no robotic Eloquence voices, no novelty ones (Bells, Zarvox...).
+    static func installedVoices() -> [AVSpeechSynthesisVoice] {
+        AVSpeechSynthesisVoice.speechVoices().filter {
+            !$0.identifier.contains("eloquence") && !$0.identifier.contains("speech.synthesis.voice")
+        }
+    }
+
+    static func baseCode(_ tag: String) -> String {
         String(tag.split(whereSeparator: { $0 == "-" || $0 == "_" }).first ?? "en").lowercased()
     }
 
@@ -156,13 +176,13 @@ final class SpeechController: NSObject, AVSpeechSynthesizerDelegate {
     /// regions the user asked the system for first (European Portuguese counts as asked for).
     private func voice(for language: String) -> AVSpeechSynthesisVoice? {
         if let cached = voiceCache[language] { return cached }
+        if let id = Settings.speechVoices[language], let chosen = AVSpeechSynthesisVoice(identifier: id) {
+            voiceCache[language] = chosen
+            return chosen
+        }
         var preferred = Set(Locale.preferredLanguages.map { $0.replacingOccurrences(of: "_", with: "-") })
         preferred.insert("pt-PT")
-        let candidates = AVSpeechSynthesisVoice.speechVoices().filter { voice in
-            Self.baseCode(voice.language) == language
-                && !voice.identifier.contains("eloquence")
-                && !voice.identifier.contains("speech.synthesis.voice")
-        }
+        let candidates = Self.installedVoices().filter { Self.baseCode($0.language) == language }
         func score(_ voice: AVSpeechSynthesisVoice) -> Int {
             voice.quality.rawValue * 100 + (preferred.contains(voice.language) ? 10 : 0)
         }
@@ -226,5 +246,66 @@ final class SpeechController: NSObject, AVSpeechSynthesizerDelegate {
         case .paused:
             info.playbackState = .paused
         }
+    }
+}
+
+/// View > Reading Voice: every installed voice, by language. Rebuilt each time it opens, so a voice
+/// downloaded in System Settings shows up without restarting the app.
+final class VoiceMenu: NSObject, NSMenuDelegate {
+    static let shared = VoiceMenu()
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        let voices = SpeechController.installedVoices()
+        let chosen = Settings.speechVoices
+        var groups: [String: [AVSpeechSynthesisVoice]] = [:]
+        for voice in voices { groups[voice.language.replacingOccurrences(of: "_", with: "-"), default: []].append(voice) }
+
+        var first = Locale.preferredLanguages.map { $0.replacingOccurrences(of: "_", with: "-") }
+        first.insert("pt-PT", at: 0)
+        let tags = groups.keys.sorted { a, b in
+            let ia = first.firstIndex(of: a) ?? Int.max, ib = first.firstIndex(of: b) ?? Int.max
+            return ia != ib ? ia < ib : a < b
+        }
+
+        for tag in tags {
+            let code = SpeechController.baseCode(tag)
+            let sub = NSMenu(title: tag)
+            let auto = NSMenuItem(title: "Automatic (best installed)", action: #selector(pick(_:)), keyEquivalent: "")
+            auto.target = self
+            auto.representedObject = ["code": code] as NSDictionary
+            auto.state = chosen[code] == nil ? .on : .off
+            sub.addItem(auto)
+            sub.addItem(.separator())
+            let sorted = (groups[tag] ?? []).sorted {
+                $0.quality.rawValue != $1.quality.rawValue ? $0.quality.rawValue > $1.quality.rawValue : $0.name < $1.name
+            }
+            for voice in sorted {
+                let quality = voice.quality == .premium ? " (Premium)" : voice.quality == .enhanced ? " (Enhanced)" : ""
+                let item = NSMenuItem(title: voice.name + quality, action: #selector(pick(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = ["code": code, "id": voice.identifier] as NSDictionary
+                item.state = chosen[code] == voice.identifier ? .on : .off
+                sub.addItem(item)
+            }
+            let title = Locale.current.localizedString(forIdentifier: tag) ?? tag
+            let group = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            group.submenu = sub
+            menu.addItem(group)
+        }
+        if tags.isEmpty {
+            let none = NSMenuItem(title: "No voices found", action: nil, keyEquivalent: "")
+            none.isEnabled = false
+            menu.addItem(none)
+        }
+        menu.addItem(.separator())
+        let hint = NSMenuItem(title: "More voices: System Settings > Accessibility > Spoken Content", action: nil, keyEquivalent: "")
+        hint.isEnabled = false
+        menu.addItem(hint)
+    }
+
+    @objc private func pick(_ sender: NSMenuItem) {
+        guard let info = sender.representedObject as? NSDictionary, let code = info["code"] as? String else { return }
+        SpeechController.shared.setVoice(identifier: info["id"] as? String, language: code)
     }
 }

@@ -58,3 +58,11 @@ extension Settings {
         set { UserDefaults.standard.set(newValue, forKey: "speechSpeed") }
     }
 }
+
+extension Settings {
+    /// The voice chosen for each language ("pt" -> voice identifier). No entry means automatic.
+    static var speechVoices: [String: String] {
+        get { UserDefaults.standard.dictionary(forKey: "speechVoices") as? [String: String] ?? [:] }
+        set { UserDefaults.standard.set(newValue, forKey: "speechVoices") }
+    }
+}
