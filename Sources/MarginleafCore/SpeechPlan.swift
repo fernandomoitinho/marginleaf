@@ -25,6 +25,8 @@ public struct SpeechSegment: Equatable {
 /// quotes behave as they do on screen. Code is not read out, links are read by their text
 /// (a bare URL is skipped), images by their alt text, raw HTML and rules are ignored.
 public enum SpeechPlan {
+    private typealias Node = UnsafeMutablePointer<cmark_node>
+
     private static let extensions = ["table", "strikethrough", "autolink", "tasklist"]
 
     public static func segments(from markdown: String) -> [SpeechSegment] {
@@ -47,7 +49,7 @@ public enum SpeechPlan {
 
     // MARK: Blocks
 
-    private static func walk(_ node: OpaquePointer, into out: inout [SpeechSegment]) {
+    private static func walk(_ node: Node, into out: inout [SpeechSegment]) {
         var child = cmark_node_first_child(node)
         while let block = child {
             let line = Int(cmark_node_get_start_line(block))
@@ -79,7 +81,7 @@ public enum SpeechPlan {
         out.append(SpeechSegment(kind: kind, text: text, line: line))
     }
 
-    private static func tableText(_ table: OpaquePointer) -> String {
+    private static func tableText(_ table: Node) -> String {
         var rows: [String] = []
         var row = cmark_node_first_child(table)
         while let r = row {
@@ -98,11 +100,11 @@ public enum SpeechPlan {
 
     // MARK: Inlines
 
-    private static func inlineText(_ node: OpaquePointer) -> String {
+    private static func inlineText(_ node: Node) -> String {
         collapse(rawInline(node))
     }
 
-    private static func rawInline(_ node: OpaquePointer) -> String {
+    private static func rawInline(_ node: Node) -> String {
         var result = ""
         var child = cmark_node_first_child(node)
         while let inline = child {
@@ -129,7 +131,7 @@ public enum SpeechPlan {
         return result
     }
 
-    private static func typeName(_ node: OpaquePointer) -> String {
+    private static func typeName(_ node: Node) -> String {
         guard let name = cmark_node_get_type_string(node) else { return "" }
         return String(cString: name)
     }
