@@ -46,3 +46,15 @@ extension Settings {
         set { UserDefaults.standard.set(newValue, forKey: "outlineVisible") }
     }
 }
+
+extension Settings {
+    /// Reading aloud: 1 is the system's normal speaking rate. Remembered between launches.
+    static let speechSpeeds: [Double] = [0.8, 1.0, 1.2, 1.4, 1.7]
+    static var speechSpeed: Double {
+        get {
+            let stored = UserDefaults.standard.double(forKey: "speechSpeed")
+            return stored == 0 ? 1 : stored
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "speechSpeed") }
+    }
+}

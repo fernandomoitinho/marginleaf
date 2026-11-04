@@ -19,6 +19,7 @@ It opens fast, stays small, and does one thing: show a note nicely, or show its 
   - Comments live next to the note in `note.md.comments.json`. They follow the text when you edit the note, as long as the passage still starts the same way.
 - **File explorer** on the left, like a notes vault: `Ctrl+Cmd+S` shows or hides it, `Shift+Cmd+O` picks another folder.
 - **Outline** on the right: `Option+Cmd+O` (or the toolbar button) shows a table of contents built from the note's headings, indented by level. Click one and the Preview or Source scrolls to it. It follows your edits.
+- **Read aloud:** `Option+Cmd+R` (or the speaker button) reads the note, or just the selected text, with the system voice. Offline, nothing to download. Press again to pause; media keys and AirPods work too. Code blocks are skipped, links are read by their text, tables row by row, and each paragraph is read in its own language. Speed is under *View → Reading Speed*. For a much better voice, install an Enhanced or Premium one in System Settings → Accessibility → Spoken Content → System Voice → Manage Voices.
 - **Find and replace** in Source (`Option+Cmd+F`).
 - **Safe saving:** line endings (LF/CRLF), BOM and the trailing newline are preserved, and an unchanged file saves back byte for byte.
 - **Live reload:** if the file changes on disk (git, an editor, a script) Marginleaf reloads it, or asks if you have unsaved edits.
@@ -56,13 +57,15 @@ Sources/MarginleafCore/   Pure Swift, no AppKit, unit-tested:
                           Renderer (Markdown → HTML via cmark-gfm), Style (preview CSS),
                           TextCodec (UTF-8, CRLF, BOM round trips), FenceScanner (code fences),
                           Comments (model, JSON sidecar, copy format),
-                          Outline (headings and their source lines).
+                          Outline (headings and their source lines),
+                          SpeechPlan (what to read aloud: headings, paragraphs, tables).
 Sources/Marginleaf/       The app (AppKit + WebKit):
                           MarkdownDocument (NSDocument: read, write, external changes),
                           DocumentWindowController (toolbar, Source/Preview, sidebar),
                           CommentsController (selection, highlights, popover, injected script),
                           MarkdownHighlighter (per-paragraph colouring), SidebarViewController,
                           OutlineViewController (the table of contents),
+                          SpeechController (read aloud via AVSpeechSynthesizer, media keys),
                           MainMenu, AppDelegate.
 Resources/                Info.plist, app icon, disk image background.
 scripts/                  make-app.sh (.app and .dmg), smoke.sh (CI launch check).
