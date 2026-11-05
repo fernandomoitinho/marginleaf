@@ -67,6 +67,11 @@ public enum Style {
     pre { background: var(--code-bg); padding: 16px 18px; border-radius: 10px; overflow-x: auto; line-height: 1.5; margin: 1.2em 0; }
     pre code { background: none; padding: 0; font-size: 0.86em; border-radius: 0; }
 
+    /* Mermaid diagrams replace their code block with an SVG; a broken one keeps its source. */
+    pre.mermaid-diagram { background: none; padding: 8px 0; text-align: center; white-space: normal; }
+    pre.mermaid-diagram svg { max-width: 100%; height: auto; }
+    pre.mermaid-error { border-left: 3px solid #d33; border-radius: 0 10px 10px 0; }
+
     blockquote { margin: 1.2em 0; padding: 0 0 0 1.1em; border-left: 3px solid var(--rule); color: var(--muted); }
     blockquote > :first-child { margin-top: 0; }
     blockquote > :last-child { margin-bottom: 0; }

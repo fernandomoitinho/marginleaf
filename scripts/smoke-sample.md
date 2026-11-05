@@ -35,3 +35,12 @@ print(greeting)
 A sentence with a footnote.[^1]
 
 [^1]: The note itself, at the bottom of the page.
+
+## Diagram
+
+```mermaid
+flowchart LR
+  A[Note] --> B{Has a diagram?}
+  B -- yes --> C[Draw it]
+  B -- no --> D[Show as is]
+```

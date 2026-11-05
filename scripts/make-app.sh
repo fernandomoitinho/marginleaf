@@ -17,6 +17,9 @@ cp "$BIN" "$APP/Contents/MacOS/Marginleaf"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD/" Resources/Info.plist > "$APP/Contents/Info.plist"
 plutil -lint "$APP/Contents/Info.plist"
 
+# Mermaid (MIT), read only when a note contains a diagram.
+cp Resources/mermaid.min.js "$APP/Contents/Resources/mermaid.min.js"
+
 # Icon: Resources/AppIcon.iconset holds every size Apple expects (16 to 512 at 1x and 2x),
 # pre-rendered from AppIcon.png (1024px) with Lanczos resampling so small sizes stay sharp.
 iconutil -c icns Resources/AppIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"

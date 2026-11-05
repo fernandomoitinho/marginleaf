@@ -11,12 +11,14 @@ APP="$PWD/build/Marginleaf.app"
 SAMPLE="$PWD/scripts/smoke-sample.md"
 
 # Comment script self-test: page JS is off, so this proves our injected script still runs.
-rm -f "$OUT/selftest.json" "$OUT/selftest.json.outline"
+rm -f "$OUT/selftest.json" "$OUT/selftest.json.outline" "$OUT/selftest.json.mermaid"
 MARGINLEAF_SELFTEST="$PWD/$OUT/selftest.json" "$APP/Contents/MacOS/Marginleaf" "$SAMPLE" >/dev/null 2>&1 &
 for _ in $(seq 1 40); do [ -s "$OUT/selftest.json" ] && break; sleep 0.5; done
 for _ in $(seq 1 20); do [ -s "$OUT/selftest.json.outline" ] && break; sleep 0.5; done
+for _ in $(seq 1 20); do [ -s "$OUT/selftest.json.mermaid" ] && break; sleep 0.5; done
 echo "SMOKE: selftest -> $(cat "$OUT/selftest.json" 2>/dev/null || echo 'no output')"
 cat "$OUT/selftest.json.window" 2>/dev/null | sed 's/^/SMOKE window: /'
+echo "SMOKE: mermaid -> $(cat "$OUT/selftest.json.mermaid" 2>/dev/null || echo 'no output')"
 echo "SMOKE: outline -> $(cat "$OUT/selftest.json.outline" 2>/dev/null || echo 'no output')"
 pkill -x Marginleaf || true
 sleep 1
@@ -61,6 +63,13 @@ if osascript -e 'tell application "System Events" to keystroke "e" using command
 else
   echo "SMOKE: could not send Cmd+E (no accessibility permission)"
 fi
+
+# Diagrams: open a note full of them and take a picture once they are drawn.
+pkill -x Marginleaf || true
+sleep 1
+open -a "$APP" "$PWD/scripts/smoke-mermaid.md"
+sleep 8
+screencapture -x "$OUT/mermaid.png" || echo "SMOKE: mermaid screencapture failed"
 
 pkill -x Marginleaf || true
 exit 0

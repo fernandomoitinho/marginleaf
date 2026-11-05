@@ -24,6 +24,11 @@ final class SpeechPlanTests: XCTestCase {
         XCTAssertFalse(segments.contains { $0.text.contains("secret") })
     }
 
+    func testMermaidBlocksAreDiagramsNotCode() {
+        let md = "```mermaid\nflowchart LR\n  A --> B\n```\n\n```sh\nls\n```\n"
+        XCTAssertEqual(SpeechPlan.segments(from: md).map(\.kind), [.diagram, .code])
+    }
+
     func testInlineFormattingIsStripped() {
         let md = "A **bold** and *soft* word, `code` and ~~gone~~ text.\n"
         XCTAssertEqual(SpeechPlan.segments(from: md).first?.text, "A bold and soft word, code and gone text.")

@@ -4,10 +4,10 @@ import cmark_gfm_extensions
 
 /// One piece of a note to read aloud: a heading, a paragraph, a table or a code block.
 public struct SpeechSegment: Equatable {
-    public enum Kind: Equatable { case heading, paragraph, table, code }
+    public enum Kind: Equatable { case heading, paragraph, table, code, diagram }
 
     public let kind: Kind
-    /// What to say. Empty for `.code`: the app says its own short label, in the language of the note.
+    /// What to say. Empty for `.code` and `.diagram`: the app says its own short label, in the language of the note.
     public let text: String
     /// 1-based line in the Markdown source where the block starts.
     public let line: Int
@@ -62,7 +62,9 @@ public enum SpeechPlan {
                 if let last = text.last, !".:;!?".contains(last) { text += "." }
                 add(.heading, text, line, to: &out)
             case "code_block":
-                out.append(SpeechSegment(kind: .code, text: "", line: line))
+                var info = ""
+                if let fence = cmark_node_get_fence_info(block) { info = String(cString: fence).lowercased() }
+                out.append(SpeechSegment(kind: info.hasPrefix("mermaid") ? .diagram : .code, text: "", line: line))
             case "table":
                 add(.table, tableText(block), line, to: &out)
             case "html_block", "thematic_break", "footnote_definition":

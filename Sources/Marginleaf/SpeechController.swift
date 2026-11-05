@@ -131,14 +131,24 @@ final class SpeechController: NSObject, AVSpeechSynthesizerDelegate {
         var result: [Item] = []
         var previous = Locale.preferredLanguages.first.map(Self.baseCode) ?? "en"
         for segment in segments {
-            if segment.kind != .code { previous = Self.language(of: segment.text, fallback: previous) }
-            let text = segment.kind == .code ? Self.codeLabel(for: previous) : segment.text
+            let silent = segment.kind == .code || segment.kind == .diagram
+            if !silent { previous = Self.language(of: segment.text, fallback: previous) }
+            let text = silent ? Self.codeLabel(for: previous, diagram: segment.kind == .diagram) : segment.text
             result.append(Item(text: text, language: previous, pause: segment.kind == .heading ? 0.6 : 0.3))
         }
         return result
     }
 
-    private static func codeLabel(for language: String) -> String {
+    private static func codeLabel(for language: String, diagram: Bool) -> String {
+        if diagram {
+            switch language {
+            case "pt": return "Diagrama."
+            case "es": return "Diagrama."
+            case "fr": return "Schéma."
+            case "de": return "Diagramm."
+            default: return "Diagram."
+            }
+        }
         switch language {
         case "pt": return "Bloco de código."
         case "es": return "Bloque de código."

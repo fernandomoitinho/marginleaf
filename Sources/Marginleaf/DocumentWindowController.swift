@@ -18,6 +18,13 @@ final class PreviewWebView: WKWebView {
     }
 
     @objc private func commentFromMenu() { onComment?() }
+
+    /// Diagrams are drawn in the colours of the moment, so a light/dark switch redraws them.
+    var onAppearanceChange: (() -> Void)?
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        onAppearanceChange?()
+    }
 }
 
 /// Hosts an existing view as the main pane of the split view.
@@ -281,6 +288,7 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
         shouldCascadeWindows = true
         comments.webView = web
         web.onComment = { [weak self] in self?.addComment() }
+        web.onAppearanceChange = { [weak self] in self?.appearanceChanged() }
         comments.textView = text
         comments.window = window
         comments.onChange = { [weak self] in
@@ -482,6 +490,15 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
         renderedVersion = textVersion
     }
 
+    private var pageHasDiagrams = false
+
+    private func appearanceChanged() {
+        guard pageHasDiagrams, mode == .preview else { return }
+        webView.evaluateJavaScript(Self.previewFractionJS) { [weak self] result, _ in
+            self?.renderPreview(restoring: (result as? Double) ?? 0)
+        }
+    }
+
     private func setPreviewFraction(_ fraction: Double) {
         let js = "window.scrollTo(0, \(fraction) * Math.max(0, document.documentElement.scrollHeight - window.innerHeight))"
         webView.evaluateJavaScript(js, completionHandler: nil)
@@ -493,6 +510,7 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
             setPreviewFraction(fraction)
         }
         comments.applyHighlights()
+        MermaidRenderer.render(in: webView) { [weak self] count in self?.pageHasDiagrams = count > 0 }
         if let out = ProcessInfo.processInfo.environment["MARGINLEAF_SELFTEST"] { runSelfTest(writingTo: out) }
     }
 
