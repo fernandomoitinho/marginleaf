@@ -104,6 +104,22 @@ enum MainMenu {
         menu.addItem(item("Toggle Sidebar", #selector(NSSplitViewController.toggleSidebar(_:)), "s", [.command, .control]))
         menu.addItem(item("Show Outline", #selector(AppDelegate.toggleOutline(_:)), "o", [.command, .option]))
         menu.addItem(.separator())
+        menu.addItem(item("Read Aloud", #selector(AppDelegate.toggleReading(_:)), "r", [.command, .option]))
+        menu.addItem(item("Stop Reading", #selector(AppDelegate.stopReading(_:)), "r", [.command, .option, .shift]))
+        let speed = NSMenu(title: "Reading Speed")
+        for value in Settings.speechSpeeds {
+            let label = value == 1 ? "Normal" : String(format: "%.1f×", value)
+            speed.addItem(item(label, #selector(AppDelegate.setReadingSpeed(_:)), tag: Int((value * 100).rounded())))
+        }
+        let speedItem = NSMenuItem(title: "Reading Speed", action: nil, keyEquivalent: "")
+        speedItem.submenu = speed
+        menu.addItem(speedItem)
+        let voices = NSMenu(title: "Reading Voice")
+        voices.delegate = VoiceMenu.shared
+        let voiceItem = NSMenuItem(title: "Reading Voice", action: nil, keyEquivalent: "")
+        voiceItem.submenu = voices
+        menu.addItem(voiceItem)
+        menu.addItem(.separator())
         menu.addItem(item("Zoom In", #selector(AppDelegate.zoomIn(_:)), "="))
         menu.addItem(item("Zoom Out", #selector(AppDelegate.zoomOut(_:)), "-"))
         menu.addItem(item("Actual Size", #selector(AppDelegate.zoomReset(_:)), "0"))

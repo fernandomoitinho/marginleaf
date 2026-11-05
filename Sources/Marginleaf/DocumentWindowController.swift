@@ -71,6 +71,8 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
     private static let addCommentID = NSToolbarItem.Identifier("marginleaf.addComment")
     private static let commentsID = NSToolbarItem.Identifier("marginleaf.comments")
     private static let outlineID = NSToolbarItem.Identifier("marginleaf.outline")
+    private static let speakID = NSToolbarItem.Identifier("marginleaf.speak")
+    private var speakItem: NSToolbarItem?
 
     // Comments (preview only for now)
     var canAddComment: Bool { true }
@@ -130,11 +132,11 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
     }
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.toggleSidebar, .flexibleSpace, Self.modeItemID, Self.toggleCommentsID, Self.addCommentID, Self.commentsID, .flexibleSpace, Self.outlineID]
+        [.toggleSidebar, .flexibleSpace, Self.modeItemID, Self.toggleCommentsID, Self.addCommentID, Self.commentsID, .flexibleSpace, Self.speakID, Self.outlineID]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.toggleSidebar, .flexibleSpace, Self.modeItemID, Self.toggleCommentsID, Self.addCommentID, Self.commentsID, Self.outlineID]
+        [.toggleSidebar, .flexibleSpace, Self.modeItemID, Self.toggleCommentsID, Self.addCommentID, Self.commentsID, Self.speakID, Self.outlineID]
     }
 
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier,
@@ -169,6 +171,15 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
             item.menu = comments.makeMenu()
             commentsMenuItem = item
             return item
+        case Self.speakID:
+            let item = NSToolbarItem(itemIdentifier: id)
+            item.label = "Read Aloud"
+            item.target = self
+            item.action = #selector(speakTapped)
+            item.isBordered = true
+            speakItem = item
+            updateSpeakItem()
+            return item
         case Self.outlineID:
             let item = NSToolbarItem(itemIdentifier: id)
             item.image = NSImage(systemSymbolName: "sidebar.right", accessibilityDescription: "Outline")
@@ -181,6 +192,51 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
         default:
             return nil
         }
+    }
+
+    // MARK: Read aloud
+
+    /// Option+Cmd+R. Idle: reads the selection, or the whole note. Otherwise pauses or resumes.
+    func toggleReading() {
+        let speech = SpeechController.shared
+        let title = markdownDoc?.displayName ?? "Note"
+        guard speech.state == .idle else {
+            speech.toggle(markdown: "", title: title)
+            return
+        }
+        if mode == .source {
+            let range = textView.selectedRange()
+            let text = range.length > 0 ? (textView.string as NSString).substring(with: range) : currentText
+            speech.start(markdown: text, title: title)
+        } else {
+            webView.evaluateJavaScript("window.getSelection().toString()") { [weak self] result, _ in
+                guard let self else { return }
+                let selected = (result as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                speech.start(markdown: selected.isEmpty ? self.currentText : selected, title: title)
+            }
+        }
+    }
+
+    @objc private func speakTapped() { toggleReading() }
+
+    @objc private func speechStateChanged() { updateSpeakItem() }
+
+    private func updateSpeakItem() {
+        let symbol: String
+        let tip: String
+        switch SpeechController.shared.state {
+        case .idle:
+            symbol = "speaker.wave.2"
+            tip = "Read the note aloud, or just the selection (Option+Cmd+R)"
+        case .speaking:
+            symbol = "pause.fill"
+            tip = "Pause reading (Option+Cmd+R)"
+        case .paused:
+            symbol = "play.fill"
+            tip = "Resume reading (Option+Cmd+R)"
+        }
+        speakItem?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Read aloud")
+        speakItem?.toolTip = tip
     }
 
     /// How far down the preview is scrolled, 0...1.
@@ -245,6 +301,9 @@ final class DocumentWindowController: NSWindowController, NSTextViewDelegate, WK
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(applyZoom), name: .marginleafZoomChanged, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(speechStateChanged), name: SpeechController.stateChanged, object: nil
         )
     }
 

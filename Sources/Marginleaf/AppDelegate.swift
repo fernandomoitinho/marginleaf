@@ -65,6 +65,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     @objc func toggleOutline(_ sender: Any?) { currentController?.toggleOutline() }
 
+    @objc func toggleReading(_ sender: Any?) { currentController?.toggleReading() }
+    @objc func stopReading(_ sender: Any?) { SpeechController.shared.stop() }
+    @objc func setReadingSpeed(_ sender: NSMenuItem) { SpeechController.shared.setSpeed(Double(sender.tag) / 100) }
+
     @objc func zoomIn(_ sender: Any?) { Settings.zoom += 0.1 }
     @objc func zoomOut(_ sender: Any?) { Settings.zoom -= 0.1 }
     @objc func zoomReset(_ sender: Any?) { Settings.zoom = 1 }
@@ -84,6 +88,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 return false
             }
             item.title = controller.isOutlineVisible ? "Hide Outline" : "Show Outline"
+            return true
+        case #selector(toggleReading(_:)):
+            switch SpeechController.shared.state {
+            case .idle: item.title = "Read Aloud"
+            case .speaking: item.title = "Pause Reading"
+            case .paused: item.title = "Resume Reading"
+            }
+            return SpeechController.shared.state != .idle || currentController != nil
+        case #selector(stopReading(_:)):
+            return SpeechController.shared.state != .idle
+        case #selector(setReadingSpeed(_:)):
+            item.state = abs(Settings.speechSpeed - Double(item.tag) / 100) < 0.01 ? .on : .off
             return true
         case #selector(addComment(_:)):
             return currentController?.canAddComment ?? false
