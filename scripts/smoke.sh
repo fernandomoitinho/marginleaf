@@ -71,5 +71,14 @@ open -a "$APP" "$PWD/scripts/smoke-mermaid.md"
 sleep 8
 screencapture -x "$OUT/mermaid.png" || echo "SMOKE: mermaid screencapture failed"
 
+# Same, in dark mode, with a diagram that has a mistake.
+pkill -x Marginleaf || true
+sleep 1
+defaults write -g AppleInterfaceStyle Dark || true
+open -a "$APP" "$PWD/scripts/smoke-mermaid-error.md"
+sleep 8
+screencapture -x "$OUT/mermaid-dark.png" || echo "SMOKE: dark screencapture failed"
+defaults delete -g AppleInterfaceStyle || true
+
 pkill -x Marginleaf || true
 exit 0
