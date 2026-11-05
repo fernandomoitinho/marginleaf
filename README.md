@@ -10,6 +10,7 @@ It opens fast, stays small, and does one thing: show a note nicely, or show its 
 
 - **Preview and Source** are the same file in two views. `Cmd+E` switches between them.
 - **Preview:** GitHub-flavoured Markdown (tables, task lists, footnotes, strikethrough, autolinks), images next to the note, light and dark mode that follows the system, prose in a readable column while tables and code use the full window width.
+- **Diagrams:** a ```` ```mermaid ```` block is drawn as a diagram (flowcharts, sequence, timeline, and the rest of what [Mermaid](https://mermaid.js.org) supports), in light or dark. Offline; the library is bundled and only loaded when a note has a diagram. A diagram with a mistake stays as code, with the reason as a tooltip.
 - **Source:** a plain native text view with light Markdown colouring. No toolbar, no autocomplete, built to stay responsive on large files.
 - **Inline comments**, in both Preview and Source:
   - Select text and press `Option+Cmd+M` (or right-click → Comment), write, `Cmd+Enter` saves.
@@ -65,9 +66,10 @@ Sources/Marginleaf/       The app (AppKit + WebKit):
                           CommentsController (selection, highlights, popover, injected script),
                           MarkdownHighlighter (per-paragraph colouring), SidebarViewController,
                           OutlineViewController (the table of contents),
+                          MermaidRenderer (draws ```mermaid blocks from outside the page),
                           SpeechController (read aloud via AVSpeechSynthesizer, media keys),
                           MainMenu, AppDelegate.
-Resources/                Info.plist, app icon, disk image background.
+Resources/                Info.plist, app icon, disk image background, mermaid.min.js (Mermaid 11, MIT).
 scripts/                  make-app.sh (.app and .dmg), smoke.sh (CI launch check).
 Tests/MarginleafCoreTests/
 ```
